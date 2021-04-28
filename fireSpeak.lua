@@ -46,6 +46,7 @@ function FireSpeak:Help()
     self:Print("  - /fsc -> Open the configuration pannel allowing to import rules")
     self:Print("  - /fsl <rule type> -> List all registered rules of type <rule type>")
     self:Print("  - /fsd <rule type>:<rule index> -> Delete a registered rule by type and index")
+    self:Print("         stutter                  -> Disable stuttering")
 end
 
 function FireSpeak:OnDisable()
@@ -232,10 +233,6 @@ function FireSpeak_ConfigParseStutter(rule)
     return msg
 end
 
--- FireSpeak configuration input consists of a blob of text respecting the following grammar
--- <rule>         ::= <rule-type> ":" <rule-content>
--- <rule-type>    ::= "ReplaceStrlit" | "ReplaceRgxp"
--- <rule-content> ::= [A-Za-z0-9\.\*\-\\(\)\:\s"]
 -- Some examples:
 --    - Replace: "test"*"remplacé"
 --    - Replace: "([0-9])"*"(%1)"
