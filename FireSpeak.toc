@@ -1,0 +1,12 @@
+## Interface:      90005
+## Title:          FireSpeak
+## Author:         Arkeopix
+## Version:        0.1
+## Notes:          Intercepte les messages sortants du joueur et les modifies
+## SavedVariables: FireSpeakDB
+## X-category:     Roleplay, Chat
+## OptionalDeps:   Ace3
+## X-Embeds:       Ace3
+
+embeds.xml
+FireSpeak.lua
