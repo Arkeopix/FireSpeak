@@ -36,3 +36,5 @@ value is a value between 0 and 1 and represents the intensity of the stuttering.
 
 - localization
 - Improve rule parsing so that it's less pissy about spaces and shits
+- insert random strings in sentence
+- react to emotes with custom text (callback on event CHAT_MSG_TEXT_EMOTE)
