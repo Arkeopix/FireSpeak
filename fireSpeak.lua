@@ -158,7 +158,6 @@ function FireSpeak_Stuttering(s, intensity)
         repeatOccurences = 1
     end
 
-    --math.randomseed(time())
     local oldIdx = {}
     while (repeatOccurences ~= 0) do
         local idx = math.random(tokenNumbers)
@@ -224,7 +223,7 @@ end
 
 function FireSpeak_ConfigParseStutter(rule)
     local msg = nil
-    if string.lower(rule):match("%s+%d%.%d$") then
+    if string.lower(rule):match("%s+%d%.%d$") or string.lower(rule):match("%s+%d$") then
         local trimmedRule = string:trim(rule)
         g_Stutter = tonumber(trimmedRule)
     else
@@ -237,6 +236,7 @@ end
 --    - Replace: "test"*"remplacé"
 --    - Replace: "([0-9])"*"(%1)"
 --    - Stutter: 0.5
+--    - insert: ["...", "...bougie!", "...Gnya!"]*0.5
 function Firespeak_ParseConfig(config)
     local parseFuncTable = {
         replace = FireSpeak_ConfigParseReplace,
