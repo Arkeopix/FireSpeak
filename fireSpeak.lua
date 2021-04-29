@@ -137,28 +137,6 @@ end
 
 function FireSpeak_Stuttering(s, intensity)
     return FireSpeak_IterChooseRandom(0, s, intensity, nil)
-    --tokens = string:split(s, ' ')
-    --tokenNumbers = #tokens
---
-    --repeatOccurences = math.floor(((intensity * tokenNumbers) / 100) * 100)
-    --if repeatOccurences == 0 then
-    --    repeatOccurences = 1
-    --end
---
-    --local oldIdx = {}
-    --while (repeatOccurences ~= 0) do
-    --    local idx = math.random(tokenNumbers)
-    --    if oldIdx[idx] == nil then
-    --        tokens[idx] = tokens[idx]:gsub("^%a", '%1-%1-%1-%0')
-    --        oldIdx[idx] = true
-    --        repeatOccurences = repeatOccurences - 1
-    --    end
-    --end
-    --local final = ""
-    --for i=1,tokenNumbers,1 do
-    --    final = final .. (i == 1 and "" or  " ") .. tokens[i]
-    --end
-    --return final
 end
 
 function FireSpeak_Insert(s, insert)
@@ -206,16 +184,18 @@ function FireSpeak_ConfigLoad(userProfile)
     return rules
 end
 
-
 function FireSpeak_ConfigParseReplace(rule)
     local msg = nil
     -- So we check that the rule matches the expected syntax
-    if string.lower(rule):match("%s*\".-\"%*\".-\"") then
+    if string.lower(rule):match("%s*\".-\":\".-\"") then
         local trimmedRule = string:trim(rule)
-        local replacePair = string:split(trimmedRule, "*")
+        --local replacePair = string:split(trimmedRule, "*")
+        local oldValue = string:extract(get_conf_string_part1(trimmedRule), "\"")
+        local newValue = string:extract(get_conf_string_part2(trimmedRule), "\"")
+        print(oldValue, newValue)
         table.insert(g_ReplaceRules, {
-            oldValue = string:extract(string:trim(replacePair[1]), "\""),
-            newValue = string:extract(replacePair[2], "\"")
+            oldValue = oldValue,--string:extract(string:trim(replacePair[1]), "\""),
+            newValue = newValue--string:extract(replacePair[2], "\"")
         })
     else
         msg = "Rule does not match expected syntax"
@@ -236,7 +216,7 @@ end
 
 function FireSpeak_ConfigParseInsert(rule)
     local msg = nil
-    if rule:match("^%s*%[.*%]%*[%d.]*$") then
+    if rule:match("^%s*%[.*%]%:[%d.]*$") then
         local insertTable = {}
         local intensity = nil
         for _, v in pairs(string:split(string:get_conf_array_content(rule), ",")) do
@@ -244,7 +224,7 @@ function FireSpeak_ConfigParseInsert(rule)
             table.insert(insertTable, v)
         end
         if string:match_conf_percent_value(rule) then
-            intensity = tonumber(string:get_after(rule, "%*"))
+            intensity = tonumber(string:get_after(rule, ":"))
         end
         table.insert(g_InsertRules, {
             insertTable = insertTable,
@@ -257,7 +237,7 @@ function FireSpeak_ConfigParseInsert(rule)
 end
 
 -- Some examples:
---    - Replace: "test"*"remplacé"
+--    - Replace: "test":"remplacé"
 --    - Replace: "([0-9])"*"(%1)"
 --    - Stutter: 0.5
 --    - insert: ["...", "...bougie!", "...Gnya!"]*0.5
@@ -289,6 +269,16 @@ end
 ----------------------------------------------------------------  
 ------------------ UTIL FUNCTIONS ------------------------------
 ----------------------------------------------------------------
+
+function get_conf_string_part1(s)
+    start, stop = s:find("^%s*\".*\":")
+    return s:sub(start, stop-1)
+end
+
+function get_conf_string_part2(s)
+    start, stop = s:find("\":\".-$")
+    return s:sub(start+2, stop)
+end
 
 function string:match_conf_percent_value(s)
     return s:match("%s*%d%.%d$") or s:match("%s*%d$")

@@ -13,11 +13,11 @@ when in game, type ``/fsc`` to open the import frame. There you can type in or p
 This is a simple string substitution using LUA patterns.
 
     -- the basic syntax
-    replace: "oldValue"*"newValue"
+    replace: "oldValue":"newValue"
     
     -- some examples
-    replace: "test"*"poil"
-    replace: "([0-9])"*"(%1)"
+    replace: "test":"poil"
+    replace: "([0-9])":"(%1)"
 
 ### Stutter
 
@@ -32,6 +32,16 @@ This simulates stuttering. This is **NOT** an accurate representation of stutter
 
 value is a value between 0 and 1 and represents the intensity of the stuttering.
 
+### Insert
+
+Allow the user to insert random strings at random intervals in sentences.
+
+    -- the basic syntax
+    insert: ["string1", "string2"]:0.5
+
+    -- some examples
+    insert: ["...", "...bougie!", "...Gnya!"]:0.5
+
 ## Instalation
 
 For the moment, just unzip the directory in your addon folder.
@@ -39,5 +49,4 @@ For the moment, just unzip the directory in your addon folder.
 ## TODO
 
 - localization
-- Improve rule parsing so that it's less pissy about spaces and shits
 - react to emotes with custom text (callback on event CHAT_MSG_TEXT_EMOTE)
