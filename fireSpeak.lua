@@ -189,13 +189,11 @@ function FireSpeak_ConfigParseReplace(rule)
     -- So we check that the rule matches the expected syntax
     if string.lower(rule):match("%s*\".-\":\".-\"") then
         local trimmedRule = string:trim(rule)
-        --local replacePair = string:split(trimmedRule, "*")
         local oldValue = string:extract(get_conf_string_part1(trimmedRule), "\"")
         local newValue = string:extract(get_conf_string_part2(trimmedRule), "\"")
-        print(oldValue, newValue)
         table.insert(g_ReplaceRules, {
-            oldValue = oldValue,--string:extract(string:trim(replacePair[1]), "\""),
-            newValue = newValue--string:extract(replacePair[2], "\"")
+            oldValue = oldValue,
+            newValue = newValue
         })
     else
         msg = "Rule does not match expected syntax"
