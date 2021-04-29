@@ -37,10 +37,12 @@ value is a value between 0 and 1 and represents the intensity of the stuttering.
 Allow the user to insert random strings at random intervals in sentences.
 
     -- the basic syntax
-    insert: ["string1", "string2"]:0.5
+    insert: ["string1", "string2"]:value
 
     -- some examples
     insert: ["...", "...bougie!", "...Gnya!"]:0.5
+
+value is a value between 0 and 1 and represents the intensity of the occurences of the strings stored in the array.
 
 ## Instalation
 

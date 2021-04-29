@@ -103,11 +103,36 @@ end
 ------------------ ADDON LOGIC CODE ----------------------------
 ----------------------------------------------------------------
 
-function FireSpeak_IterChooseRandom(action, s, intensity, data)
-    tokens = string:split(s, ' ')
-    tokenNumbers = #tokens
+function FireSpeak_GetTokensSaveFlavor(s)
+    local tokens = {}
+    local actualTokens = 0
+    local flavorStatus = false
+    for _, word in pairs(string:split(s, " ")) do
+        if string.match(word, "^%*.*%*$") then
+            flavorStatus = true
+            table.insert(tokens, {s = word, flavor = flavorStatus})
+            flavorStatus = false
+        elseif string.match(word, "^%*") then
+            flavorStatus = true
+            table.insert(tokens, {s = word, flavor = flavorStatus})
+        elseif string.match(word, "%*$") then
+            table.insert(tokens, {s = word, flavor = flavorStatus})
+            flavorStatus = false
+        else
+            table.insert(tokens, {s = word, flavor = flavorStatus})
+            if flavorStatus == false then
+                actualTokens = actualTokens + 1
+            end
+        end
+    end
+    return actualTokens, tokens
+end
 
-    repeatOccurences = math.floor(((intensity * tokenNumbers) / 100) * 100)
+function FireSpeak_IterChooseRandom(action, s, intensity, data)
+    local actualWords, tokens = FireSpeak_GetTokensSaveFlavor(s)
+    local tokenNumbers = #tokens
+
+    local repeatOccurences = math.floor(((intensity * actualWords) / 100) * 100)
     if repeatOccurences == 0 then
         repeatOccurences = 1
     end
@@ -118,19 +143,27 @@ function FireSpeak_IterChooseRandom(action, s, intensity, data)
         if oldIdx[idx] == nil then
             -- action 0 is stutter
             if action == 0 then
-                tokens[idx] = tokens[idx]:gsub("^%a", '%1-%1-%1-%0')
+                if tokens[idx].flavor == false then
+                    print(tokens[idx].s, tokens[idx].flavor)
+                    tokens[idx].s = tokens[idx].s:gsub("^%a", '%1-%1-%1-%0')
+                    repeatOccurences = repeatOccurences - 1
+                    oldIdx[idx] = true
+                end
             -- action 1 is insert
             elseif action == 1 then
-                local insertIdx = math.random(#data)
-                tokens[idx] = tokens[idx] .. data[insertIdx]
+                if tokens[idx].flavor == false then
+                    print(tokens[idx].s, tokens[idx].flavor)
+                    local insertIdx = math.random(#data)
+                    tokens[idx].s = tokens[idx].s .. " " .. data[insertIdx]
+                    repeatOccurences = repeatOccurences - 1
+                    oldIdx[idx] = true
+                end
             end
-            oldIdx[idx] = true
-            repeatOccurences = repeatOccurences - 1
         end
     end
     local final = ""
     for i=1,tokenNumbers,1 do
-        final = final .. (i == 1 and "" or  " ") .. tokens[i]
+        final = final .. (i == 1 and "" or  " ") .. tokens[i].s
     end
     return final
 end
@@ -168,7 +201,7 @@ end
 function FireSpeak_ConfigLoad(userProfile) 
     local rules = ""
     for index, rule in pairs(userProfile.replaceRules) do
-        rules = rules .. "Replace: " .. "\"" .. rule.oldValue .. "\"*\"" .. rule.newValue .. "\"\n" 
+        rules = rules .. "Replace: " .. "\"" .. rule.oldValue .. "\";\"" .. rule.newValue .. "\"\n" 
     end
     if userProfile.stutter ~= nil then
         rules = rules .. "Stutter: " .. userProfile.stutter .. "\n"
@@ -179,7 +212,7 @@ function FireSpeak_ConfigLoad(userProfile)
         for _, v in pairs(rule.insertTable) do
             rules = rules .. "\"" .. v .. "\","
         end
-        rules = rules .. "]*" .. rule.intensity .. "\n"
+        rules = rules .. "];" .. rule.intensity .. "\n"
     end
     return rules
 end
