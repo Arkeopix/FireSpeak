@@ -201,7 +201,7 @@ end
 function FireSpeak_ConfigLoad(userProfile) 
     local rules = ""
     for index, rule in pairs(userProfile.replaceRules) do
-        rules = rules .. "Replace: " .. "\"" .. rule.oldValue .. "\";\"" .. rule.newValue .. "\"\n" 
+        rules = rules .. "Replace: " .. "\"" .. rule.oldValue .. "\":\"" .. rule.newValue .. "\"\n" 
     end
     if userProfile.stutter ~= nil then
         rules = rules .. "Stutter: " .. userProfile.stutter .. "\n"
@@ -212,7 +212,7 @@ function FireSpeak_ConfigLoad(userProfile)
         for _, v in pairs(rule.insertTable) do
             rules = rules .. "\"" .. v .. "\","
         end
-        rules = rules .. "];" .. rule.intensity .. "\n"
+        rules = rules .. "]:" .. rule.intensity .. "\n"
     end
     return rules
 end
