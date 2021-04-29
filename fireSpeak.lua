@@ -209,7 +209,7 @@ end
 function FireSpeak_ConfigParseReplace(rule)
     local msg = nil
     -- So we check that the rule matches the expected syntax
-    if string.lower(rule):match("%s+\".-\"%*\".-\"") then
+    if string.lower(rule):match("%s*\".-\"%*\".-\"") then
         local trimmedRule = string:trim(rule)
         local replacePair = string:split(trimmedRule, "*")
         table.insert(g_ReplaceRules, {
@@ -246,11 +246,10 @@ function Firespeak_ParseConfig(config)
     local conf = string:split(config, "\n")
     local currChar = 0
     for _, line in pairs(conf) do
-        print(line, currChar)
-        local confRule = string:split(line, ":")
-        local ruleType = string.lower(confRule[1])
+        local ruleType = string.lower(string:get_until(line, ":"))
+        local ruleValue = string:get_after(line, ":")
         if parseFuncTable[ruleType] ~= nil then
-            local msg = parseFuncTable[ruleType](confRule[2])
+            local msg = parseFuncTable[ruleType](ruleValue)
             if msg then
                 return {msg = msg .. ". Please double check highligted line", sel = {startChar = currChar, endChar = currChar + string.len(line)}}
             end
@@ -281,6 +280,16 @@ end
 function string:extract(s, sep)
     start, stop = s:find(sep .. "(.*)" .. sep)
     return s:sub(start+1, stop-1)
+end
+
+function string:get_until(s, needle)
+    start, stop = s:find(".-" .. needle)
+    return s:sub(start, stop-1)
+end
+
+function string:get_after(s, needle)
+    start, stop = s:find(".-" .. needle)
+    return s:sub(stop+1, string.len(s))
 end
 
 -- http://lua-users.org/wiki/CopyTable

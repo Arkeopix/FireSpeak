@@ -32,6 +32,10 @@ This simulates stuttering. This is **NOT** an accurate representation of stutter
 
 value is a value between 0 and 1 and represents the intensity of the stuttering.
 
+## Instalation
+
+For the moment, just unzip the directory in your addon folder.
+
 ## TODO
 
 - localization
