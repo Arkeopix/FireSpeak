@@ -18,12 +18,14 @@ FireSpeak = LibStub("AceAddon-3.0"):NewAddon("FireSpeak", "AceConsole-3.0", "Ace
 -- This global will shortly hold the replace rules while they're not saved in the user's profile
 local g_ReplaceRules = {}
 local g_Stutter = nil
+local g_InsertRules = {}
 
 function FireSpeak:OnInitialize()
     local dbDefaults = {
         profile = {
             replaceRules = {},
-            stutter = nil,
+            insertRules = {},
+            stutter = nil
         }
     }
     self.db = LibStub("AceDB-3.0"):New("FireSpeakDB", dbDefaults)
@@ -34,69 +36,13 @@ function FireSpeak:OnEnable()
     self:Print("FireSpeak loaded, have fun !")
     self:RegisterChatCommand("FireSpeakConfig", "Config")
     self:RegisterChatCommand("fsc", "Config")
-    self:RegisterChatCommand("fsl", "ListRules")
-    self:RegisterChatCommand("fsd", "DeleteRule")
-    self:RegisterChatCommand("fsh", "Help")
     self.SecureHook(FireSpeak, "ChatEdit_ParseText", "ParseText")
-end
-
-function FireSpeak:Help()
-    self:Print("Welcome to firespeak !")
-    self:Print("Here is a list of commands and the way to use them")
-    self:Print("  - /fsc -> Open the configuration pannel allowing to import rules")
-    self:Print("  - /fsl <rule type> -> List all registered rules of type <rule type>")
-    self:Print("  - /fsd <rule type>:<rule index> -> Delete a registered rule by type and index")
-    self:Print("         stutter                  -> Disable stuttering")
 end
 
 function FireSpeak:OnDisable()
     self.Unhook(FireSpeak, "ChatEdit_ParseText")
 end
 
-function FireSpeak:DeleteRule(input)
-    local arg = self:GetArgs(input)
-    if arg ~= nil then
-        local toDelete = string.lower(arg)
-        if toDelete:match(".-:%d+") then
-            local rule = string:split(toDelete, ":")
-            self.Print("Deleting rule: " .. rule[1] .. ":" .. rule[2])
-            if rule[1] == "replace" then
-                table.remove(self.db.profile.replaceRules, rule[2])
-            end
-        elseif toDelete == "stutter" then
-            self.Print("Disabling stutter")
-            self.db.profile.stutter = nil
-        else
-            self:Print("Argument does not match exepected syntax")
-        end
-    else
-        self:Print("You need to specify rule type and a rule index")
-    end
-end
-
-function FireSpeak:ListRules(input)
-    local arg = self:GetArgs(input)
-    if arg ~= nil then
-        local toList = string.lower(arg)
-        if "replace" == toList then
-            self:Print("Listing Replace rules")
-            for index, rule in pairs(self.db.profile.replaceRules) do
-                self:Print("rule " .. index .. ": replace \"" .. rule.oldValue .. "\" with \"" .. rule.newValue .. "\"")
-            end
-        else
-            self:Print("Incorrect rule type specified")
-        end
-    else
-        self:Print("Dumping all rules")
-        self:Print("Listing Replace rules")
-        for index, rule in pairs(self.db.profile.replaceRules) do
-            self:Print("rule " .. index .. ": replace \"" .. rule.oldValue .. "\" with \"" .. rule.newValue .. "\"")
-        end
-        if self.db.profile.stutter ~= nil then
-            self:Print("Stutter: " .. self.db.profile.stutter .. "\n")
-        end
-    end
-end
 
 function FireSpeak:Config(input)
     local configFrame = self.gui:Create("Frame")
@@ -123,21 +69,29 @@ function FireSpeak:Config(input)
             -- This is done in order to avoid spamming the profile with duplicate rules
             self.db:ResetProfile()
             -- We make a deep copy because LUA passes references to variable instead of copies
-            local save = table:deepcopy(g_ReplaceRules)
+            local saveReplaceRules = table:deepcopy(g_ReplaceRules)
+            local saveInsertRules = table:deepcopy(g_InsertRules)
+            local saveStutter = g_stutter
             -- so as the data is wiped here, so is the reference
             table:clear(g_ReplaceRules)
+            table:clear(g_InsertRules)
+            g_Stutter = nil
             local status = Firespeak_ParseConfig(editBox:GetText())
             if status then
                 editBox:HighlightText(status.sel.startChar, status.sel.endChar)
                 configFrame:SetStatusText(status.msg)
-                g_ReplaceRules = save
+                g_ReplaceRules = saveReplaceRules
+                g_InsertRules = saveInsertRules
+                g_Stutter = saveStutter
                 self.db.profile.replaceRules = g_ReplaceRules
-                --self.db.profile.stutter = g_Stutter
+                self.db.profile.insertRules = g_InsertRules
+                self.db.profile.stutter = g_Stutter
                 return
             end
             -- Check status and clear only if true
             -- in case of error, display message in frame
             self.db.profile.replaceRules = g_ReplaceRules
+            self.db.profile.insertRules = g_InsertRules
             self.db.profile.stutter = g_Stutter
             configFrame:SetStatusText("Configuration succesfully imported!")
         end
@@ -149,7 +103,7 @@ end
 ------------------ ADDON LOGIC CODE ----------------------------
 ----------------------------------------------------------------
 
-function FireSpeak_Stuttering(s, intensity)
+function FireSpeak_IterChooseRandom(action, s, intensity, data)
     tokens = string:split(s, ' ')
     tokenNumbers = #tokens
 
@@ -162,7 +116,14 @@ function FireSpeak_Stuttering(s, intensity)
     while (repeatOccurences ~= 0) do
         local idx = math.random(tokenNumbers)
         if oldIdx[idx] == nil then
-            tokens[idx] = tokens[idx]:gsub("^%a", '%1-%1-%1-%0')
+            -- action 0 is stutter
+            if action == 0 then
+                tokens[idx] = tokens[idx]:gsub("^%a", '%1-%1-%1-%0')
+            -- action 1 is insert
+            elseif action == 1 then
+                local insertIdx = math.random(#data)
+                tokens[idx] = tokens[idx] .. data[insertIdx]
+            end
             oldIdx[idx] = true
             repeatOccurences = repeatOccurences - 1
         end
@@ -174,12 +135,45 @@ function FireSpeak_Stuttering(s, intensity)
     return final
 end
 
+function FireSpeak_Stuttering(s, intensity)
+    return FireSpeak_IterChooseRandom(0, s, intensity, nil)
+    --tokens = string:split(s, ' ')
+    --tokenNumbers = #tokens
+--
+    --repeatOccurences = math.floor(((intensity * tokenNumbers) / 100) * 100)
+    --if repeatOccurences == 0 then
+    --    repeatOccurences = 1
+    --end
+--
+    --local oldIdx = {}
+    --while (repeatOccurences ~= 0) do
+    --    local idx = math.random(tokenNumbers)
+    --    if oldIdx[idx] == nil then
+    --        tokens[idx] = tokens[idx]:gsub("^%a", '%1-%1-%1-%0')
+    --        oldIdx[idx] = true
+    --        repeatOccurences = repeatOccurences - 1
+    --    end
+    --end
+    --local final = ""
+    --for i=1,tokenNumbers,1 do
+    --    final = final .. (i == 1 and "" or  " ") .. tokens[i]
+    --end
+    --return final
+end
+
+function FireSpeak_Insert(s, insert)
+    return FireSpeak_IterChooseRandom(1, s, insert.intensity, insert.insertTable)
+end
+
 function FireSpeak:ParseText(chatEntry, send)
     if (1 == send) then
         local text = chatEntry:GetText()
         if text:match("^[^/].*") then
             for _, strReplace in pairs(self.db.profile.replaceRules) do
                 text = text:gsub(strReplace.oldValue, strReplace.newValue)
+            end
+            for _, insertRules in pairs(self.db.profile.insertRules) do
+                text = FireSpeak_Insert(text, insertRules)
             end
             if self.db.profile.stutter ~= nil then
                 text = FireSpeak_Stuttering(text, self.db.profile.stutter)
@@ -200,6 +194,14 @@ function FireSpeak_ConfigLoad(userProfile)
     end
     if userProfile.stutter ~= nil then
         rules = rules .. "Stutter: " .. userProfile.stutter .. "\n"
+    end
+
+    for index, rule in pairs(userProfile.insertRules) do
+        rules = rules .. "insert: ["
+        for _, v in pairs(rule.insertTable) do
+            rules = rules .. "\"" .. v .. "\","
+        end
+        rules = rules .. "]*" .. rule.intensity .. "\n"
     end
     return rules
 end
@@ -232,6 +234,28 @@ function FireSpeak_ConfigParseStutter(rule)
     return msg
 end
 
+function FireSpeak_ConfigParseInsert(rule)
+    local msg = nil
+    if rule:match("^%s*%[.*%]%*[%d.]*$") then
+        local insertTable = {}
+        local intensity = nil
+        for _, v in pairs(string:split(string:get_conf_array_content(rule), ",")) do
+            v = string:extract(string:trim(v), "\"")
+            table.insert(insertTable, v)
+        end
+        if string:match_conf_percent_value(rule) then
+            intensity = tonumber(string:get_after(rule, "%*"))
+        end
+        table.insert(g_InsertRules, {
+            insertTable = insertTable,
+            intensity = intensity
+        })
+    else
+        msg = "Rule does not match expected syntax"
+    end
+    return msg
+end
+
 -- Some examples:
 --    - Replace: "test"*"remplacé"
 --    - Replace: "([0-9])"*"(%1)"
@@ -241,6 +265,7 @@ function Firespeak_ParseConfig(config)
     local parseFuncTable = {
         replace = FireSpeak_ConfigParseReplace,
         stutter = FireSpeak_ConfigParseStutter,
+        insert  = FireSpeak_ConfigParseInsert,
     }
 
     local conf = string:split(config, "\n")
@@ -294,6 +319,11 @@ end
 function string:get_after(s, needle)
     start, stop = s:find(".-" .. needle)
     return s:sub(stop+1, string.len(s))
+end
+
+function string:get_conf_array_content(s)
+    start, stop = s:find("%[(.*)%]")
+    return s:sub(start+1, stop-1)
 end
 
 -- http://lua-users.org/wiki/CopyTable
