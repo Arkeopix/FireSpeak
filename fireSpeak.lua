@@ -223,7 +223,7 @@ end
 
 function FireSpeak_ConfigParseStutter(rule)
     local msg = nil
-    if string.lower(rule):match("%s+%d%.%d$") or string.lower(rule):match("%s+%d$") then
+    if string:match_conf_percent_value(rule) then
         local trimmedRule = string:trim(rule)
         g_Stutter = tonumber(trimmedRule)
     else
@@ -264,6 +264,10 @@ end
 ----------------------------------------------------------------  
 ------------------ UTIL FUNCTIONS ------------------------------
 ----------------------------------------------------------------
+
+function string:match_conf_percent_value(s)
+    return s:match("%s*%d%.%d$") or s:match("%s*%d$")
+end
 
 function string:split(inputstr, sep)
     local t={}
