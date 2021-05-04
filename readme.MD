@@ -37,7 +37,7 @@ This simulates stuttering. This is **NOT** an accurate representation of stutter
     -- the basic syntax
     stutter: value
 
-    -- some example
+    -- some examples
     stutter: 0.5
     stutter: 0.3
 
