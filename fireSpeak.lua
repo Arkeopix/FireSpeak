@@ -1,13 +1,6 @@
 -- TODO
 --   - Document the shit out of your code
 --   - Beta test by guild and friends
--- Done
---   - List saved rules
---   - Delete saved rule by index
---   - Load saved rules in MultiLineEditBox when user launches /fsc
---   - Check syntax error in rules and report them to users
---   - Validate every user input and return usefull error messages
---   - Write usage for slash commands
 
 ----------------------------------------------------------------  
 ------------------ ADDON SETUP CODE ----------------------------
@@ -19,6 +12,7 @@ FireSpeak = LibStub("AceAddon-3.0"):NewAddon("FireSpeak", "AceConsole-3.0", "Ace
 local g_ReplaceRules = {}
 local g_Stutter = nil
 local g_InsertRules = {}
+local g_ReplaceChoiceRules = {}
 
 -- Called whenever the character enters the world, before OnEnable
 function FireSpeak:OnInitialize()
@@ -28,6 +22,7 @@ function FireSpeak:OnInitialize()
         profile = {
             replaceRules = {},
             insertRules = {},
+            replaceChoiceRules = {},
             stutter = nil
         }
     }
@@ -91,10 +86,12 @@ function FireSpeak:Config()
             -- We make a deep copy because LUA passes references to variable instead of copies
             local saveReplaceRules = table:deepcopy(g_ReplaceRules)
             local saveInsertRules = table:deepcopy(g_InsertRules)
+            local saveReplaceChoiceRules = table:deepcopy(g_ReplaceChoiceRules)
             local saveStutter = g_stutter
             -- As the data is wiped here, so is the reference
             table:clear(g_ReplaceRules)
             table:clear(g_InsertRules)
+            table:clear(g_ReplaceChoiceRules)
             g_Stutter = nil
             -- Now that all the data is saved and the profile squeaky clean we can actually parse the user's configuration
             local status = Firespeak_ParseConfig(editBox:GetText())
@@ -108,15 +105,18 @@ function FireSpeak:Config()
                 g_ReplaceRules = saveReplaceRules
                 g_InsertRules = saveInsertRules
                 g_Stutter = saveStutter
+                g_ReplaceChoiceRules = saveReplaceChoiceRules
                 self.db.profile.replaceRules = g_ReplaceRules
                 self.db.profile.insertRules = g_InsertRules
                 self.db.profile.stutter = g_Stutter
+                self.db.profile.replaceChoiceRules = g_ReplaceChoiceRules
                 return
             end
             -- Everything went fine, update the rule set in the user's profile
             self.db.profile.replaceRules = g_ReplaceRules
             self.db.profile.insertRules = g_InsertRules
             self.db.profile.stutter = g_Stutter
+            self.db.profile.replaceChoiceRules = g_ReplaceChoiceRules
             configFrame:SetStatusText("Configuration succesfully imported!")
         end
     )
@@ -128,7 +128,8 @@ end
 ----------------------------------------------------------------
 
 -- Parses the input string s and split it on spaces to get an array
--- then for each word, check wether the word is part of flavor text (*like this*).
+-- then for each word, check wether the word is part of flavor text (*like this*)
+-- Also safeguard text inbetween parenthesis
 -- Return a table containings words and their status regarding their belonging to flavor text
 -- Arguments:
 --   - s: the input string
@@ -271,6 +272,10 @@ function FireSpeak:ParseText(chatEntry, send)
             for _, strReplace in pairs(self.db.profile.replaceRules) do
                 text = text:gsub(strReplace.oldValue, strReplace.newValue)
             end
+            for _, strReplace in pairs(self.db.profile.replaceChoiceRules) do
+                local replaceIdx = math.random(#strReplace.newValue)
+                text = text:gsub(strReplace.oldValue, strReplace.newValue[replaceIdx])
+            end
             -- Applying inserts
             for _, insertRules in pairs(self.db.profile.insertRules) do
                 text = FireSpeak_Insert(text, insertRules)
@@ -295,19 +300,27 @@ end
 --  - a string representing the user's configuration
 function FireSpeak_ConfigLoad(userProfile) 
     local rules = ""
-    for index, rule in pairs(userProfile.replaceRules) do
+    for _, rule in pairs(userProfile.replaceRules) do
         rules = rules .. "Replace: " .. "\"" .. rule.oldValue .. "\":\"" .. rule.newValue .. "\"\n" 
     end
     if userProfile.stutter ~= nil then
         rules = rules .. "Stutter: " .. userProfile.stutter .. "\n"
     end
 
-    for index, rule in pairs(userProfile.insertRules) do
-        rules = rules .. "insert: ["
+    for _, rule in pairs(userProfile.insertRules) do
+        rules = rules .. "Insert: ["
         for _, v in pairs(rule.insertTable) do
             rules = rules .. "\"" .. v .. "\","
         end
         rules = rules .. "]:" .. rule.intensity .. "\n"
+    end
+
+    for _, rule in pairs(userProfile.replaceChoiceRules) do
+        rules = rules .. "ReplaceChoice: \"".. rule.oldValue .. "\"\:["
+        for _, v in pairs(rule.newValue) do
+            rules = rules .. "\"" .. v .. "\","
+        end
+        rules = rules .. "]\n"
     end
     return rules
 end
@@ -356,7 +369,7 @@ function FireSpeak_ConfigParseStutter(rule)
     return msg
 end
 
--- Parses the insert rule, use g_InsertRules as storage
+-- Parses the insert rule, uses g_InsertRules as storage
 -- Arguments:
 --  - rule: the value part of the rule. 
 -- Return:
@@ -389,12 +402,43 @@ function FireSpeak_ConfigParseInsert(rule)
     return msg
 end
 
+-- Parses the Replacechoice rules, uses g_ReplaceChoiceRules as storage
+-- Arguments:
+--  - rules: the value part of the rule
+-- Return:
+--  - nil if no was encoutered
+--  - An error message
+function FireSPeak_ConfigParseReplaceChoice(rule)
+    local msg = nil
+    -- We check that the rule matches the expected syntax
+    -- Must match a patter that looks like this:
+    --  - "blal":["bla", "bleh"]
+    -- This pattern is not ideal but lua patterns do not seem to be able to match non ascii characters
+    if rule:match("^%s*%\".-\"%:%[.*%]$") then
+        local trimmedRule = string:trim(rule)
+        local oldValue = string:extract(get_conf_string_part1(trimmedRule), "\"")
+        local insertTable = {}
+        for _, v in pairs(string:split(string:get_conf_array_content(rule), ",")) do
+            v = string:extract(string:trim(v), "\"")
+            table.insert(insertTable, v)
+        end
+        table.insert(g_ReplaceChoiceRules, {
+            oldValue = oldValue,
+            newValue = insertTable
+        })
+    else
+        msg = "Rule does not match expected syntax"
+    end
+    return msg
+end
+
 -- The core of the configuration parsing
 -- Some examples of rules:
 --    - Replace: "test":"remplacé"
 --    - Replace: "([0-9])"*"(%1)"
 --    - Stutter: 0.5
 --    - insert: ["...", "...bougie!", "...Gnya!"]*0.5
+--    - replaceChoice: "test":["...", "...bougie!", "...Gnya!"]
 -- Arguments:
 --  - config: A string representing the full user's configurations
 -- Return:
@@ -403,9 +447,10 @@ end
 --    - { msg = string, sel = { startChar = integer, endChar = integer}}
 function Firespeak_ParseConfig(config)
     local parseFuncTable = {
-        replace = FireSpeak_ConfigParseReplace,
-        stutter = FireSpeak_ConfigParseStutter,
-        insert  = FireSpeak_ConfigParseInsert,
+        replace       = FireSpeak_ConfigParseReplace,
+        stutter       = FireSpeak_ConfigParseStutter,
+        insert        = FireSpeak_ConfigParseInsert,
+        replacechoice = FireSPeak_ConfigParseReplaceChoice
     }
 
     local conf = string:split(config, "\n")

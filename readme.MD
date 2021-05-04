@@ -19,6 +19,16 @@ This is a simple string substitution using LUA patterns.
     replace: "test":"poil"
     replace: "([0-9])":"(%1)"
 
+### ReplaceChoice
+
+Just like Replace but inserts a random value among a list
+
+    -- the basic syntax
+    replaceChoice: "oldValue":["newValue1","newValue2"]
+    
+    -- some examples
+    replace: "mdr":["Haha je rigole vraiment beaucoup", "*Se tape le cul parterre"]
+
 ### Stutter
 
 This simulates stuttering. This is **NOT** an accurate representation of stuttering.
