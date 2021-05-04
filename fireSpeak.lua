@@ -418,7 +418,7 @@ function FireSPeak_ConfigParseReplaceChoice(rule)
         local trimmedRule = string:trim(rule)
         local oldValue = string:extract(get_conf_string_part1(trimmedRule), "\"")
         local insertTable = {}
-        for _, v in pairs(string:split(string:get_conf_array_content(rule), ",")) do
+        for _, v in pairs(string:split(string:get_conf_array_content(string:get_after(rule, ":")), ",")) do
             v = string:extract(string:trim(v), "\"")
             table.insert(insertTable, v)
         end

@@ -27,7 +27,8 @@ Just like Replace but inserts a random value among a list
     replaceChoice: "oldValue":["newValue1","newValue2"]
     
     -- some examples
-    replace: "mdr":["Haha je rigole vraiment beaucoup", "*Se tape le cul parterre"]
+    replacechoice: "mdr":["Haha je rigole vraiment beaucoup", "*Se tape le cul parterre*"]
+    ReplaceChoice: "([0-9])":["(%1)","%1%1"]
 
 ### Stutter
 
